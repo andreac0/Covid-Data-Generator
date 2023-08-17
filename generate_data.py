@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 ######################
 ### Parameters
 #####################
-number_patients = 10**6
+number_patients = 10**5
 interval_start = '12/05/2021'
-interval_end = '30/12/2021'
-variant_type = ['G6','K0','L8','M5']#,'W3','Y6','J9']
-number_waves = 4
+interval_end = '15/06/2021'
+variant_type = ['G6','K0','L8']#,'M5','W3','Y6','J9']
+number_waves = 2
 ######################
 
 # Convert dates
@@ -92,10 +92,12 @@ date_dead = list(map(dead, date_icu))
 
 # Variants
 viral_intensity = random.choices(range(1,100), k = len(variant_type))
-variants = random.choices(variant_type, weights=viral_intensity, k=int(len(N)/number_waves))
-for i in range(1,number_waves):
-    viral_intensity = np.add(viral_intensity,random.choices(range(1,100), k = len(variant_type)))
-    variants = np.append(variants,random.choices(variant_type, weights=viral_intensity, k=int(len(N)/number_waves)))
+variants = random.choices(variant_type, weights=viral_intensity, k=int(len(N)/(number_waves*4)))
+n = 100
+for i in range(1,number_waves*4):
+    viral_intensity = np.add(viral_intensity,random.choices(range(1,n), k = len(variant_type)))
+    variants = np.append(variants,random.choices(variant_type, weights=viral_intensity, k=int(len(N)/(number_waves*4))))
+    n = n*2
 
 # Select region
 weight_region = random.choices(range(1,1000), k = len(regions))
@@ -119,7 +121,14 @@ patient.loc[np.where(patient['deceased'] == 0)[0],'deathDate'] = None
 patient.loc[np.where(patient['icuAdmitted'] == 0)[0],'icuDate'] = None
 patient.loc[np.where(patient['deathDate'] < patient['icuDate'])[0],['icuDate','deathDate']] = patient.iloc[np.where(patient['deathDate'] < patient['icuDate'])[0]][['deathDate','icuDate']].rename(columns = {'deathDate':'icuDate','icuDate':'deathDate'})
 
-patient.to_csv("patients.csv", index_label=None)
+# patient.to_csv("patients.csv", index_label=None)
 
+n_icu = patient[patient['icuAdmitted']==1].groupby('icuDate')['id'].count().iloc[10:]
+date_analyis = n_icu[n_icu/n_icu.shift()>1.2][[0]].reset_index()['icuDate']
+id_start = patient[patient['icuDate'].isin(date_analyis)].iloc[0]['id']
 
+patient[patient['id']<id_start].to_csv("patients_old.csv", index_label=None)
 
+date_new = date_analyis + timedelta(days = 1)
+id_end = patient[patient['icuDate'].isin(date_new)].iloc[0]['id']
+patient[patient['id']>=id_start][patient['id']<id_end].to_csv("patients_current.csv", index_label=None)
